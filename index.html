@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Play Call Drill</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one narrow call-sheet column; setup -> one situation card at a time -> report table */
+:root{
+  --paper:#EEF1EE; --card:#FAFBF9; --ink:#14202A; --muted:#5C6B74; --line:#D3DAD6;
+  --accent:#1C55B8; --accent-ink:#FFFFFF; --hl:#FFF3A6; --hl-ink:#14202A;
+  --turf:#2F6B47; --turf-line:#E9F2EC; --ez:#244F36;
+  --s-red:#B3261E; --s-out:#8A5A00; --s-3rd:#1C55B8; --s-base:#4B5C66;
+  --font-display:"Saira Condensed","Arial Narrow",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0E1417; --card:#162027; --ink:#E5ECEE; --muted:#94A4AC; --line:#2A3740;
+  --accent:#7BA8F2; --accent-ink:#0E1417; --hl:#3A3618; --hl-ink:#F6EFC2;
+  --turf:#1E4630; --turf-line:#A9C9B4; --ez:#173726;
+  --s-red:#F08A82; --s-out:#E2B45A; --s-3rd:#7BA8F2; --s-base:#A3B2BA; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0E1417; --card:#162027; --ink:#E5ECEE; --muted:#94A4AC; --line:#2A3740;
+  --accent:#7BA8F2; --accent-ink:#0E1417; --hl:#3A3618; --hl-ink:#F6EFC2;
+  --turf:#1E4630; --turf-line:#A9C9B4; --ez:#173726;
+  --s-red:#F08A82; --s-out:#E2B45A; --s-3rd:#7BA8F2; --s-base:#A3B2BA; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0}
+img{max-width:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding-block:28px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 16px;border-bottom:3px solid var(--ink);padding-bottom:10px}
+h1{font-family:var(--font-display);font-weight:800;font-size:2.4rem;line-height:1;margin:0;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
+.sub{color:var(--muted);font-size:.85rem;margin:0}
+.label{font-size:.72rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:20px;display:grid;gap:16px;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button,.filebtn{font:600 .9rem var(--font-body);border-radius:4px;padding:10px 16px;cursor:pointer;border:1px solid var(--ink);background:transparent;color:var(--ink)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,.filebtn:focus-within,input:focus-visible,.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.filebtn{position:relative;display:inline-block}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop{border:1.5px dashed var(--line);border-radius:6px;padding:14px;color:var(--muted);font-size:.88rem}
+.drop.over{border-color:var(--accent);color:var(--ink)}
+.status{font-size:.85rem;color:var(--muted)}
+.status b{color:var(--ink)}
+.status.err{color:var(--s-red)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:500 .85rem var(--font-body);padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.chip[aria-pressed="true"]{border-color:var(--sc);color:var(--sc);background:color-mix(in srgb,var(--sc) 10%,transparent)}
+.chip .n{font-family:var(--font-mono);font-size:.75rem}
+.privacy{font-size:.8rem;color:var(--muted);margin:0}
+
+/* Quiz card */
+.progress{display:flex;gap:4px}
+.progress span{flex:1;height:5px;border-radius:2px;background:var(--line)}
+.progress span.done{background:var(--ink)}
+.progress span.now{background:var(--accent)}
+.sit{display:inline-block;font:700 .8rem var(--font-display);letter-spacing:.12em;text-transform:uppercase;color:var(--sc);border:1.5px solid var(--sc);padding:2px 8px;border-radius:3px}
+.dd{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px}
+.dd .big{font-family:var(--font-display);font-weight:800;font-size:3.6rem;line-height:.95;letter-spacing:-.01em}
+.dd .spot{font-family:var(--font-mono);font-weight:600;font-size:1.05rem}
+.field{width:100%;height:auto;display:block;border-radius:4px}
+.look{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.look div{background:var(--card);padding:10px 12px;min-width:0}
+.look .v{font-family:var(--font-mono);font-weight:600;font-size:.98rem;overflow-wrap:anywhere}
+.callbox{display:grid;gap:6px}
+.callbox input{font:600 1.15rem var(--font-mono);padding:12px 14px;border:2px solid var(--ink);border-radius:4px;background:var(--hl);color:var(--hl-ink);width:100%;min-width:0}
+.hint{font-size:.78rem;color:var(--muted)}
+.nav{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+/* Report */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:4px}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:.86rem}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--paper)}
+td.num,td.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.call{font-family:var(--font-mono);font-weight:600;background:var(--hl);color:var(--hl-ink)}
+td.call.empty{background:transparent;color:var(--muted);font-weight:400}
+tr:last-child td{border-bottom:0}
+.summary{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:.88rem}
+.summary b{font-family:var(--font-mono)}
+.toast{font-size:.85rem;color:var(--turf)}
+@media (max-width:480px){h1{font-size:1.9rem}.dd .big{font-size:2.8rem}.panel{padding:16px}}
+@media (prefers-reduced-motion:no-preference){.card-in{animation:in .18s ease-out}@keyframes in{from{transform:translateY(4px)}to{transform:none}}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Play Call Drill</h1>
+      <p class="sub">12-play series · random situations · write the call, review the sheet</p>
+    </div>
+    <span class="label" id="poolLabel"></span>
+  </header>
+
+  <!-- SETUP -->
+  <section class="panel" id="setup">
+    <div class="row" style="justify-content:space-between">
+      <span class="label">1 · Scout data</span>
+      <label class="filebtn">Import CSV<input type="file" id="file" accept=".csv,text/csv"></label>
+    </div>
+    <div class="drop" id="drop">Drop a .csv here. Columns: <span style="font-family:var(--font-mono)">DN, DIST, FPOS, HASH, FRONT, FRONT FAMILY, STUNT, BLITZ, BLITZ FAMILY, COV</span>. DN <span style="font-family:var(--font-mono)">0</span> = first play of the drive. FPOS <span style="font-family:var(--font-mono)">-26</span> = own 26, <span style="font-family:var(--font-mono)">35</span> = opponent 35.</div>
+    <div class="status" id="status"></div>
+
+    <span class="label">2 · Situations in the shuffle</span>
+    <div class="chips" id="chips"></div>
+
+    <div class="row">
+      <button class="primary" id="start">Start 12-play series</button>
+      <span class="status" id="poolNote"></span>
+    </div>
+    <p class="privacy">Your CSV is read inside this browser tab only. Nothing is uploaded or saved.</p>
+  </section>
+
+  <!-- QUIZ -->
+  <section class="panel" id="quiz" hidden>
+    <div class="progress" id="progress"></div>
+    <div id="card" class="card-in" style="display:grid;gap:16px"></div>
+    <div class="callbox">
+      <label class="label" for="call">Your call</label>
+      <input id="call" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. Gun Trips Rt — Y Stick">
+      <span class="hint">Enter for next play · leave blank to skip</span>
+    </div>
+    <div class="nav">
+      <button id="prev">Back</button>
+      <div class="row">
+        <button id="quit">End series</button>
+        <button class="primary" id="next">Next play</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- REPORT -->
+  <section class="panel" id="report" hidden>
+    <div class="row" style="justify-content:space-between">
+      <span class="label">Series report</span>
+      <div class="row">
+        <button id="copy">Copy report</button>
+        <button class="primary" id="again">New series</button>
+      </div>
+    </div>
+    <div class="summary" id="summary"></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>#</th><th>Situation</th><th>D&amp;D</th><th>Spot</th><th>Hash</th><th>Front / Family</th><th>Stunt</th><th>Blitz / Fam</th><th>Cov</th><th>Your call</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <span class="toast" id="toast" aria-live="polite"></span>
+    <textarea id="copyFallback" hidden readonly style="width:100%;min-height:120px;font-family:var(--font-mono);font-size:.8rem"></textarea>
+  </section>
+</div>
+
+<script>
+const SERIES = 12;
+const SITS = [
+  {id:'open', name:'Drive Opener', c:'--s-out'},
+  {id:'goal', name:'Goal Line', c:'--s-red'},
+  {id:'red',  name:'Red Zone', c:'--s-red'},
+  {id:'out',  name:'Coming Out', c:'--s-out'},
+  {id:'4th',  name:'4th Down', c:'--s-red'},
+  {id:'3L',   name:'3rd & Long', c:'--s-3rd'},
+  {id:'3M',   name:'3rd & Medium', c:'--s-3rd'},
+  {id:'3S',   name:'3rd & Short', c:'--s-3rd'},
+  {id:'2L',   name:'2nd & Long', c:'--s-base'},
+  {id:'2S',   name:'2nd & Short', c:'--s-base'},
+  {id:'1st',  name:'Open Field', c:'--s-base'},
+];
+const sitById = Object.fromEntries(SITS.map(s=>[s.id,s]));
+
+const SAMPLE = `DN,DIST,FPOS,HASH,FRONT,FRONT FAMILY,STUNT,BLITZ,BLITZ FAMILY,COV
+0,10,-9,R,MINT,3,,W@1,I,3 BUZZ
+1,10,-26,R,FIELD G,4,,,,3 CLD
+2,1,-35,R,MINT R OKIE,3,,,,3 BUZZ
+0,10,-25,M,OVER,4,,,,QTRS
+2,8,-6,L,UNDER,4,PINCH,,,1 ROBBER
+3,9,-5,M,TITE,3,TWIST,SAM FIRE,F,3 BUZZ
+2,2,-32,L,OVER,4,SLANT STR,,,1 FREE
+2,11,-40,R,MINT,3,,NICKEL CAT,N,2 INV
+3,3,45,L,BEAR,5,,MIKE FIRE,M,0
+3,6,38,R,OKIE,3,STEM,,,4 MOD
+3,12,-44,M,DIME,3,SPIN,SIM,S,6
+4,1,34,L,BEAR,5,PINCH,EDGE,E,0
+0,10,-35,L,FIELD G,4,,,,3 CLD
+1,10,18,R,OVER,4,,,,RED 2
+2,7,14,L,TITE,3,TWIST,,,3 MATCH
+3,4,11,M,UNDER,4,SLANT WK,CAT,N,1 RAT
+1,4,4,L,GOAL LINE,6,PINCH,,,0
+3,2,2,R,GOAL LINE,6,,ALL OUT,A,0
+2,5,8,M,EVEN,4,STEM,,,1 FREE
+1,10,48,M,OVER,4,,,,3 CLD
+2,3,27,R,MINT,3,SLANT STR,,,2 MAN
+3,15,33,L,DIME,3,,,,2
+3,1,-48,R,BEAR,5,PINCH,MIKE/WILL,M,0
+2,10,-1,R,TITE,3,,,,3 BUZZ
+3,7,21,M,ODD,3,TWIST,ZONE PRES,Z,3 SKY
+4,3,29,L,OVER,4,STEM,,,1 FREE`;
+
+const ALIAS = {
+  down:['down','dn'],
+  distance:['distance','dist','togo','yardstogo','yds'],
+  field:['fpos','fieldposition','fieldpos','field','fp','yardline','spot','ball','ballon'],
+  hash:['hash','hashmark'],
+  front:['defensefront','deffront','front','dfront'],
+  family:['frontfamily','frontfamliy','frontfam','family','ff'],
+  bfamily:['blitzfamily','blitzfam','blitzfamliy','bfam'],
+  stunt:['stunt','stunts','movement','line stunt'.replace(' ','')],
+  blitz:['blitz','pressure','blitzes'],
+  coverage:['coverage','covatage','coverge','coveage','cov','shell'],
+  situation:['situation','sit']
+};
+
+let plays = [], selected = new Set(SITS.map(s=>s.id)), series = [], idx = 0, sourceName = '';
+
+/* ---------- CSV ---------- */
+function parseCSV(text){
+  const rows=[]; let row=[], f='', q=false;
+  text = text.replace(/^﻿/,'');
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){f+='"';i++;} else q=false; } else f+=ch; }
+    else if(ch==='"') q=true;
+    else if(ch===','){ row.push(f); f=''; }
+    else if(ch==='\n'||ch==='\r'){ if(ch==='\r'&&text[i+1]==='\n') i++; row.push(f); rows.push(row); row=[]; f=''; }
+    else f+=ch;
+  }
+  if(f!==''||row.length){ row.push(f); rows.push(row); }
+  return rows.filter(r=>r.some(c=>c.trim()!==''));
+}
+const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g,'');
+
+function parseField(raw){
+  const s = String(raw||'').trim().toUpperCase().replace(/\s+/g,' ');
+  let m;
+  if((m=s.match(/^(?:-|OWN|O|MINUS)\s*(\d{1,2})$/))) { const y=+m[1]; return {ytg:100-y, label:'-'+y}; }
+  if((m=s.match(/^(?:\+|OPP|P|PLUS)?\s*(\d{1,2})$/))) { const y=+m[1]; return {ytg:y, label:String(y)}; }
+  return null;
+}
+function parseDist(raw, ytg){
+  const s=String(raw||'').trim().toUpperCase();
+  if(s==='G'||s==='GOAL'||s==='GL') return {n:ytg, goal:true};
+  if(s==='IN'||s==='INCHES') return {n:1};
+  const n=parseFloat(s); return isNaN(n)?null:{n};
+}
+function situationOf(down, dist, ytg){
+  // Zone tag (field position) + down tag; a play can carry both.
+  const tags=[];
+  const zone = ytg<=5?'goal':ytg<=20?'red':ytg>=90?'out':null;
+  if(zone) tags.push(zone);
+  let dt=null;
+  if(down===0) dt='open';
+  else if(down===4) dt='4th';
+  else if(down===3) dt=dist>=7?'3L':dist>=4?'3M':'3S';
+  else if(down===2) dt=dist<=3?'2S':dist>=7?'2L':null;
+  if(dt) tags.unshift(dt);
+  if(!tags.length) tags.push('1st');
+  return tags;
+}
+function matchSit(s){
+  const n=norm(s); if(!n) return null;
+  const hit = SITS.find(x=>norm(x.name)===n||x.id.toLowerCase()===n);
+  if(hit) return hit.id;
+  if(n.includes('red')) return 'red'; if(n.includes('goal')) return 'goal';
+  if(n.includes('comingout')||n.includes('backed')) return 'out';
+  return null;
+}
+
+function loadCSV(text, name){
+  const rows = parseCSV(text);
+  if(rows.length<2) return fail('That file has no play rows under the header.');
+  const head = rows[0].map(norm), col={};
+  for(const [k,al] of Object.entries(ALIAS)){ const i=head.findIndex(h=>al.includes(h)); if(i>-1) col[k]=i; }
+  const need=['down','distance','field'];
+  const miss=need.filter(k=>col[k]===undefined);
+  if(miss.length) return fail('Missing column(s): '+miss.join(', ')+'. Found: '+rows[0].join(', '));
+  const out=[]; let dropSit=0, dropLook=0, dropKneel=0;
+  // Placeholder values like "", "--", "!", "—" count as empty.
+  const blank=v=>/^[\s\-–—!！?.]*$/.test(v);
+  const get=(r,k)=>{ const v=col[k]===undefined?'':(r[col[k]]||'').trim(); return blank(v)?'':v; };
+  rows.slice(1).forEach(r=>{
+    const rawDn=get(r,'down'), rawDist=get(r,'distance'), rawFp=get(r,'field');
+    const fp=parseField(rawFp); const down=/^\d+$/.test(rawDn)?parseInt(rawDn,10):NaN;
+    const d=fp&&rawDist?parseDist(rawDist,fp.ytg):null;
+    if(!fp||!(down>=0&&down<=4)||!d){dropSit++;return;}
+    if(!get(r,'front')||!get(r,'coverage')){dropLook++;return;}
+    if(/KNEEL/i.test(get(r,'front'))){dropKneel++;return;}
+    const custom = matchSit(get(r,'situation'));
+    const sits = custom ? [...new Set([...(down===0?['open']:[]), custom])] : situationOf(down,d.n,fp.ytg);
+    out.push({down, dist:d.n, goal:!!d.goal||d.n>=fp.ytg, ytg:fp.ytg, spot:fp.label,
+      hash:(get(r,'hash')||'—').toUpperCase(), front:get(r,'front')||'—', family:get(r,'family')||'—',
+      stunt:get(r,'stunt')||'—', blitz:get(r,'blitz')||'—', bfamily:get(r,'bfamily')||'—', coverage:get(r,'coverage')||'—', sits});
+  });
+  if(!out.length) return fail(`No usable rows. ${dropSit} missing DN/DIST/FPOS, ${dropLook} missing FRONT or COV.`);
+  plays=out; sourceName=name;
+  const st=document.getElementById('status'); st.className='status';
+  st.innerHTML = `<b>${out.length}</b> plays loaded from <b>${esc(name)}</b>`+((dropSit||dropLook||dropKneel)?` · cleaned out ${dropSit+dropLook+dropKneel} row(s): ${dropSit} missing DN/DIST/FPOS, ${dropLook} missing FRONT or COV, ${dropKneel} kneel`:'');
+  renderChips();
+}
+function fail(msg){ const st=document.getElementById('status'); st.className='status err'; st.textContent=msg; }
+
+/* ---------- Setup UI ---------- */
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function renderChips(){
+  const counts={}; plays.forEach(p=>p.sits.forEach(t=>counts[t]=(counts[t]||0)+1));
+  const box=document.getElementById('chips'); box.innerHTML='';
+  SITS.forEach(s=>{
+    const b=document.createElement('button'); b.className='chip'; b.type='button';
+    b.style.setProperty('--sc',`var(${s.c})`);
+    const n=counts[s.id]||0;
+    b.setAttribute('aria-pressed', selected.has(s.id)&&n>0);
+    b.disabled = n===0;
+    b.innerHTML=`${s.name} <span class="n">${n}</span>`;
+    b.onclick=()=>{ selected.has(s.id)?selected.delete(s.id):selected.add(s.id); renderChips(); };
+    box.appendChild(b);
+  });
+  const poolRows=plays.filter(p=>p.sits.some(t=>selected.has(t)));
+  const pool=poolRows.filter(p=>!p.sits.includes('open')).length+(poolRows.some(p=>p.sits.includes('open'))?1:0);
+  document.getElementById('poolNote').textContent = pool===0?'Pick at least one situation.':pool<SERIES?`Only ${pool} plays match, so the series will be ${pool} plays.`:`${poolRows.length} plays in the pool`;
+  document.getElementById('start').disabled = pool===0;
+  document.getElementById('poolLabel').textContent = sourceName;
+}
+
+/* ---------- Quiz ---------- */
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function start(){
+  const pool=plays.filter(p=>p.sits.some(t=>selected.has(t)));
+  // At most one Drive Opener per series.
+  let opener=false; const picked=[];
+  for(const p of shuffle(pool)){
+    if(picked.length>=SERIES) break;
+    if(p.sits.includes('open')){ if(opener) continue; opener=true; }
+    picked.push(p);
+  }
+  series = picked.map(p=>({...p, call:''}));
+  idx=0; show('quiz'); renderCard();
+}
+function show(id){ ['setup','quiz','report'].forEach(s=>document.getElementById(s).hidden = s!==id); window.scrollTo({top:0}); }
+function ddText(p){ const n=['1st','1st','2nd','3rd','4th'][p.down]; return `${n} & ${p.goal?'Goal':p.dist}`; }
+
+function fieldSVG(p){
+  const W=600,H=96, ez=40, fw=W-2*ez, ppx=fw/100;
+  const ballX = ez + (100-p.ytg)*ppx;
+  const lineX = p.goal ? ez+fw : ez + (100-p.ytg+p.dist)*ppx;
+  const hy = {L:30, M:48, R:66}[p.hash] ?? 48;
+  let lines='';
+  for(let y=5;y<100;y+=5){ const x=ez+y*ppx; lines+=`<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="var(--turf-line)" stroke-opacity="${y%10?0.18:0.4}" stroke-width="1"/>`;
+    if(y%10===0){ const lab = y<=50?y:100-y; lines+=`<text x="${x}" y="${H-6}" text-anchor="middle" font-size="10" font-family="IBM Plex Mono,monospace" fill="var(--turf-line)" fill-opacity=".75">${lab}</text>`; } }
+  return `<svg class="field" viewBox="0 0 ${W} ${H}" role="img" aria-label="Ball on ${p.spot}, ${p.hash} hash, driving right">
+    <rect x="0" y="0" width="${W}" height="${H}" fill="var(--turf)"/>
+    <rect x="0" y="0" width="${ez}" height="${H}" fill="var(--ez)"/>
+    <rect x="${W-ez}" y="0" width="${ez}" height="${H}" fill="var(--ez)"/>
+    <text x="${ez/2}" y="${H/2}" text-anchor="middle" dominant-baseline="middle" font-size="10" font-family="IBM Plex Mono,monospace" fill="var(--turf-line)" fill-opacity=".6" transform="rotate(-90 ${ez/2} ${H/2})">OWN</text>
+    <text x="${W-ez/2}" y="${H/2}" text-anchor="middle" dominant-baseline="middle" font-size="10" font-family="IBM Plex Mono,monospace" fill="var(--turf-line)" fill-opacity=".6" transform="rotate(90 ${W-ez/2} ${H/2})">OPP</text>
+    ${lines}
+    <line x1="${ez}" y1="30" x2="${W-ez}" y2="30" stroke="var(--turf-line)" stroke-opacity=".25" stroke-dasharray="2 6"/>
+    <line x1="${ez}" y1="66" x2="${W-ez}" y2="66" stroke="var(--turf-line)" stroke-opacity=".25" stroke-dasharray="2 6"/>
+    <rect x="${Math.min(ballX,lineX)}" y="0" width="${Math.abs(lineX-ballX)}" height="${H}" fill="var(--hl)" fill-opacity=".22"/>
+    <line x1="${lineX}" y1="0" x2="${lineX}" y2="${H}" stroke="#F2C230" stroke-width="3"/>
+    <line x1="${ballX}" y1="0" x2="${ballX}" y2="${H}" stroke="var(--accent)" stroke-width="3"/>
+    <ellipse cx="${ballX}" cy="${hy}" rx="9" ry="5.5" fill="#7A4A22" stroke="#FFFFFF" stroke-width="1.5"/>
+  </svg>`;
+}
+
+function renderCard(){
+  const p=series[idx];
+  const prog=document.getElementById('progress');
+  prog.innerHTML=series.map((_,i)=>`<span class="${i<idx?'done':i===idx?'now':''}"></span>`).join('');
+  const hashName={L:'Left',M:'Middle',R:'Right'}[p.hash]||p.hash;
+  const card=document.getElementById('card');
+  card.classList.remove('card-in'); void card.offsetWidth; card.classList.add('card-in');
+  card.innerHTML=`
+    <div class="row" style="justify-content:space-between">
+      <span class="row" style="gap:6px">${p.sits.map(t=>`<span class="sit" style="--sc:var(${sitById[t].c})">${sitById[t].name}</span>`).join('')}</span>
+      <span class="label">Play ${idx+1} of ${series.length}</span>
+    </div>
+    <div class="dd"><span class="big">${ddText(p)}</span><span class="spot">Ball on ${p.spot} · ${hashName} hash</span></div>
+    ${fieldSVG(p)}
+    <div class="look">
+      <div><div class="label">Front</div><div class="v">${esc(p.front)}</div></div>
+      <div><div class="label">Family</div><div class="v">${esc(p.family)}</div></div>
+      <div><div class="label">Stunt</div><div class="v">${esc(p.stunt)}</div></div>
+      <div><div class="label">Blitz</div><div class="v">${esc(p.blitz)}</div></div>
+      <div><div class="label">Blitz family</div><div class="v">${esc(p.bfamily)}</div></div>
+      <div><div class="label">Coverage</div><div class="v">${esc(p.coverage)}</div></div>
+    </div>`;
+  const inp=document.getElementById('call'); inp.value=p.call; inp.focus({preventScroll:true});
+  document.getElementById('prev').disabled = idx===0;
+  document.getElementById('next').textContent = idx===series.length-1?'Finish series':'Next play';
+}
+function saveCall(){ series[idx].call=document.getElementById('call').value.trim(); }
+function next(){ saveCall(); if(idx<series.length-1){idx++;renderCard();} else finish(); }
+function prev(){ saveCall(); if(idx>0){idx--;renderCard();} }
+
+/* ---------- Report ---------- */
+function finish(){
+  saveCall(); show('report');
+  const answered=series.filter(p=>p.call).length;
+  const bySit={}; series.forEach(p=>p.sits.forEach(t=>bySit[t]=(bySit[t]||0)+1));
+  document.getElementById('summary').innerHTML =
+    `<span>Called <b>${answered}/${series.length}</b></span>`+
+    Object.entries(bySit).map(([k,n])=>`<span>${sitById[k].name} <b>${n}</b></span>`).join('');
+  document.getElementById('rows').innerHTML = series.map((p,i)=>`<tr>
+    <td class="num">${i+1}</td><td>${p.sits.map(t=>sitById[t].name).join(' · ')}</td><td class="mono">${ddText(p)}</td><td class="mono">${p.spot}</td><td class="mono">${esc(p.hash)}</td>
+    <td>${esc(p.front)} / ${esc(p.family)}</td><td>${esc(p.stunt)}</td><td>${esc(p.blitz)}${p.bfamily!=='—'?' / '+esc(p.bfamily):''}</td><td>${esc(p.coverage)}</td>
+    <td class="call ${p.call?'':'empty'}">${p.call?esc(p.call):'no call'}</td></tr>`).join('');
+  document.getElementById('toast').textContent=''; document.getElementById('copyFallback').hidden=true;
+}
+function reportText(){
+  const head=['#','Situation','DN & DIST','FPOS','HASH','FRONT','FRONT FAMILY','STUNT','BLITZ','BLITZ FAMILY','COV','CALL'];
+  return [head.join('\t'), ...series.map((p,i)=>[i+1,p.sits.map(t=>sitById[t].name).join(' + '),ddText(p),p.spot,p.hash,p.front,p.family,p.stunt,p.blitz,p.bfamily,p.coverage,p.call||'(no call)'].join('\t'))].join('\n');
+}
+document.getElementById('copy').onclick=()=>{
+  const t=reportText(), toast=document.getElementById('toast');
+  const fb=()=>{const ta=document.getElementById('copyFallback'); ta.value=t; ta.hidden=false; ta.select(); toast.textContent='Copy was blocked here. The report is selected below; press Ctrl/Cmd+C.';};
+  try{ navigator.clipboard.writeText(t).then(()=>toast.textContent='Copied. Paste into Sheets or Excel and it lands in columns.',fb); }catch(e){ fb(); }
+};
+
+/* ---------- Wire up ---------- */
+document.getElementById('start').onclick=start;
+document.getElementById('next').onclick=next;
+document.getElementById('prev').onclick=prev;
+document.getElementById('quit').onclick=finish;
+document.getElementById('again').onclick=()=>{ show('setup'); renderChips(); };
+document.getElementById('call').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.isComposing){ e.preventDefault(); next(); }});
+function readFile(f){ if(!f) return; const r=new FileReader(); r.onload=()=>loadCSV(String(r.result), f.name); r.onerror=()=>fail('Could not read that file.'); r.readAsText(f); }
+document.getElementById('file').addEventListener('change',e=>{ readFile(e.target.files[0]); e.target.value=''; });
+const drop=document.getElementById('drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>readFile(e.dataTransfer.files[0]));
+
+loadCSV(SAMPLE,'sample scout file (example data)');
+</script>
+</body>
+</html>
