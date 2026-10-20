@@ -89,6 +89,17 @@ tr:last-child td{border-bottom:0}
 .summary{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:.88rem}
 .summary b{font-family:var(--font-mono)}
 .toast{font-size:.85rem;color:var(--turf)}
+/* Timed mode */
+.mode{display:flex;flex-wrap:wrap;gap:8px}
+.mode button{font-weight:500;border-color:var(--line);color:var(--muted)}
+.mode button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);background:color-mix(in srgb,var(--ink) 7%,transparent);font-weight:600}
+.clock{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:12px}
+.clock .sec{font:800 2.2rem/1 var(--font-display);font-variant-numeric:tabular-nums;min-width:2.2ch;text-align:right}
+.clock .bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.clock .bar i{display:block;height:100%;width:100%;background:var(--ink);transform-origin:left center}
+.clock.warn .sec{color:var(--s-red)}
+.clock.warn .bar i{background:var(--s-red)}
+.tag-time{display:inline-block;margin-left:6px;font:700 .68rem var(--font-body);letter-spacing:.08em;color:var(--s-red);border:1px solid var(--s-red);border-radius:3px;padding:0 5px;vertical-align:middle}
 @media (max-width:480px){h1{font-size:1.9rem}.dd .big{font-size:2.8rem}.panel{padding:16px}}
 @media (prefers-reduced-motion:no-preference){.card-in{animation:in .18s ease-out}@keyframes in{from{transform:translateY(4px)}to{transform:none}}}
 </style>
@@ -98,7 +109,7 @@ tr:last-child td{border-bottom:0}
   <header>
     <div>
       <h1>Play Call Drill</h1>
-      <p class="sub">12-play series · random situations · write the call, review the sheet</p>
+      <p class="sub">12-play series · random situations · untimed or 15-second calls</p>
     </div>
     <span class="label" id="poolLabel"></span>
   </header>
@@ -115,6 +126,12 @@ tr:last-child td{border-bottom:0}
     <span class="label">2 · Situations in the shuffle</span>
     <div class="chips" id="chips"></div>
 
+    <span class="label">3 · Mode</span>
+    <div class="mode" id="mode">
+      <button type="button" id="modeFree" aria-pressed="true">Untimed</button>
+      <button type="button" id="modeTimed" aria-pressed="false">Timed · 15 sec per call</button>
+    </div>
+
     <div class="row">
       <button class="primary" id="start">Start 12-play series</button>
       <span class="status" id="poolNote"></span>
@@ -125,11 +142,15 @@ tr:last-child td{border-bottom:0}
   <!-- QUIZ -->
   <section class="panel" id="quiz" hidden>
     <div class="progress" id="progress"></div>
+    <div class="clock" id="clock" hidden aria-live="off">
+      <span class="sec" id="clockSec">15</span>
+      <div class="bar"><i id="clockBar"></i></div>
+    </div>
     <div id="card" class="card-in" style="display:grid;gap:16px"></div>
     <div class="callbox">
       <label class="label" for="call">Your call</label>
       <input id="call" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. Gun Trips Rt — Y Stick">
-      <span class="hint">Enter for next play · leave blank to skip</span>
+      <span class="hint" id="hint">Enter for next play · leave blank to skip</span>
     </div>
     <div class="nav">
       <button id="prev">Back</button>
@@ -151,7 +172,7 @@ tr:last-child td{border-bottom:0}
     </div>
     <div class="summary" id="summary"></div>
     <div class="tablewrap"><table>
-      <thead><tr><th>#</th><th>Situation</th><th>D&amp;D</th><th>Spot</th><th>Hash</th><th>Front / Family</th><th>Stunt</th><th>Blitz / Fam</th><th>Cov</th><th>Your call</th></tr></thead>
+      <thead><tr><th>#</th><th>Situation</th><th>D&amp;D</th><th>Spot</th><th>Hash</th><th>Front / Family</th><th>Stunt</th><th>Blitz / Fam</th><th>Cov</th><th>Your call</th><th id="thTime">Time</th></tr></thead>
       <tbody id="rows"></tbody>
     </table></div>
     <span class="toast" id="toast" aria-live="polite"></span>
@@ -218,6 +239,8 @@ const ALIAS = {
   situation:['situation','sit']
 };
 
+const CALL_SECONDS = 15;
+let timed = false, timerId = null, playStart = 0;
 let plays = [], selected = new Set(SITS.map(s=>s.id)), series = [], idx = 0, sourceName = '';
 
 /* ---------- CSV ---------- */
@@ -340,8 +363,14 @@ function start(){
     if(p.sits.includes('open')){ if(opener) continue; opener=true; }
     picked.push(p);
   }
-  series = picked.map(p=>({...p, call:''}));
-  idx=0; show('quiz'); renderCard();
+  series = picked.map(p=>({...p, call:'', secs:null, timeout:false}));
+  idx=0; show('quiz');
+  document.getElementById('clock').hidden = !timed;
+  document.getElementById('prev').hidden = timed;
+  document.getElementById('hint').textContent = timed
+    ? `Enter to lock in the call · ${CALL_SECONDS} sec per play, then it moves on`
+    : 'Enter for next play · leave blank to skip';
+  renderCard();
 }
 function show(id){ ['setup','quiz','report'].forEach(s=>document.getElementById(s).hidden = s!==id); window.scrollTo({top:0}); }
 function ddText(p){ const n=['1st','1st','2nd','3rd','4th'][p.down]; return `${n} & ${p.goal?'Goal':p.dist}`; }
@@ -395,28 +424,60 @@ function renderCard(){
   const inp=document.getElementById('call'); inp.value=p.call; inp.focus({preventScroll:true});
   document.getElementById('prev').disabled = idx===0;
   document.getElementById('next').textContent = idx===series.length-1?'Finish series':'Next play';
+  if(timed) startClock();
 }
-function saveCall(){ series[idx].call=document.getElementById('call').value.trim(); }
-function next(){ saveCall(); if(idx<series.length-1){idx++;renderCard();} else finish(); }
-function prev(){ saveCall(); if(idx>0){idx--;renderCard();} }
+
+/* ---------- Timer ---------- */
+function stopClock(){ if(timerId){ cancelAnimationFrame(timerId); timerId=null; } }
+function startClock(){
+  stopClock(); playStart = performance.now();
+  const sec=document.getElementById('clockSec'), bar=document.getElementById('clockBar'), clock=document.getElementById('clock');
+  const tick=()=>{
+    const left = Math.max(0, CALL_SECONDS - (performance.now()-playStart)/1000);
+    sec.textContent = Math.ceil(left);
+    bar.style.transform = `scaleX(${left/CALL_SECONDS})`;
+    clock.classList.toggle('warn', left<=5);
+    if(left<=0){ timerId=null; timeUp(); return; }
+    timerId = requestAnimationFrame(tick);
+  };
+  tick();
+}
+function stampTime(){
+  if(!timed || series[idx].secs!==null) return;
+  series[idx].secs = Math.min(CALL_SECONDS, (performance.now()-playStart)/1000);
+}
+function timeUp(){
+  series[idx].timeout = true;
+  series[idx].secs = CALL_SECONDS;
+  next();
+}
+function saveCall(){ series[idx].call=document.getElementById('call').value.trim(); stampTime(); }
+function next(){ stopClock(); saveCall(); if(idx<series.length-1){idx++;renderCard();} else finish(); }
+function prev(){ if(timed) return; stopClock(); saveCall(); if(idx>0){idx--;renderCard();} }
 
 /* ---------- Report ---------- */
 function finish(){
-  saveCall(); show('report');
+  stopClock(); saveCall(); show('report');
   const answered=series.filter(p=>p.call).length;
+  const timedRows=series.filter(p=>p.secs!==null);
+  const outs=series.filter(p=>p.timeout).length;
+  const avg=timedRows.length?timedRows.reduce((a,p)=>a+p.secs,0)/timedRows.length:0;
+  document.getElementById('thTime').hidden = !timed;
   const bySit={}; series.forEach(p=>p.sits.forEach(t=>bySit[t]=(bySit[t]||0)+1));
   document.getElementById('summary').innerHTML =
     `<span>Called <b>${answered}/${series.length}</b></span>`+
+    (timed?`<span>Avg time <b>${avg.toFixed(1)}s</b></span><span>Time outs <b>${outs}</b></span>`:'')+
     Object.entries(bySit).map(([k,n])=>`<span>${sitById[k].name} <b>${n}</b></span>`).join('');
   document.getElementById('rows').innerHTML = series.map((p,i)=>`<tr>
     <td class="num">${i+1}</td><td>${p.sits.map(t=>sitById[t].name).join(' · ')}</td><td class="mono">${ddText(p)}</td><td class="mono">${p.spot}</td><td class="mono">${esc(p.hash)}</td>
     <td>${esc(p.front)} / ${esc(p.family)}</td><td>${esc(p.stunt)}</td><td>${esc(p.blitz)}${p.bfamily!=='—'?' / '+esc(p.bfamily):''}</td><td>${esc(p.coverage)}</td>
-    <td class="call ${p.call?'':'empty'}">${p.call?esc(p.call):'no call'}</td></tr>`).join('');
+    <td class="call ${p.call?'':'empty'}">${p.call?esc(p.call):'no call'}${p.timeout?'<span class="tag-time">TIME</span>':''}</td>${timed?`<td class="num">${p.secs===null?'—':p.secs.toFixed(1)+'s'}</td>`:''}</tr>`).join('');
   document.getElementById('toast').textContent=''; document.getElementById('copyFallback').hidden=true;
 }
 function reportText(){
-  const head=['#','Situation','DN & DIST','FPOS','HASH','FRONT','FRONT FAMILY','STUNT','BLITZ','BLITZ FAMILY','COV','CALL'];
-  return [head.join('\t'), ...series.map((p,i)=>[i+1,p.sits.map(t=>sitById[t].name).join(' + '),ddText(p),p.spot,p.hash,p.front,p.family,p.stunt,p.blitz,p.bfamily,p.coverage,p.call||'(no call)'].join('\t'))].join('\n');
+  const head=['#','Situation','DN & DIST','FPOS','HASH','FRONT','FRONT FAMILY','STUNT','BLITZ','BLITZ FAMILY','COV','CALL'].concat(timed?['TIME (s)','TIME OUT']:[]);
+  return [head.join('\t'), ...series.map((p,i)=>[i+1,p.sits.map(t=>sitById[t].name).join(' + '),ddText(p),p.spot,p.hash,p.front,p.family,p.stunt,p.blitz,p.bfamily,p.coverage,p.call||'(no call)']
+    .concat(timed?[p.secs===null?'':p.secs.toFixed(1), p.timeout?'Y':'']:[]).join('\t'))].join('\n');
 }
 document.getElementById('copy').onclick=()=>{
   const t=reportText(), toast=document.getElementById('toast');
@@ -426,10 +487,16 @@ document.getElementById('copy').onclick=()=>{
 
 /* ---------- Wire up ---------- */
 document.getElementById('start').onclick=start;
+function setMode(t){ timed=t;
+  document.getElementById('modeFree').setAttribute('aria-pressed', !t);
+  document.getElementById('modeTimed').setAttribute('aria-pressed', t);
+  document.getElementById('start').textContent = t?'Start timed series':'Start 12-play series'; }
+document.getElementById('modeFree').onclick=()=>setMode(false);
+document.getElementById('modeTimed').onclick=()=>setMode(true);
 document.getElementById('next').onclick=next;
 document.getElementById('prev').onclick=prev;
 document.getElementById('quit').onclick=finish;
-document.getElementById('again').onclick=()=>{ show('setup'); renderChips(); };
+document.getElementById('again').onclick=()=>{ stopClock(); show('setup'); renderChips(); };
 document.getElementById('call').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.isComposing){ e.preventDefault(); next(); }});
 function readFile(f){ if(!f) return; const r=new FileReader(); r.onload=()=>loadCSV(String(r.result), f.name); r.onerror=()=>fail('Could not read that file.'); r.readAsText(f); }
 document.getElementById('file').addEventListener('change',e=>{ readFile(e.target.files[0]); e.target.value=''; });
